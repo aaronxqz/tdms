@@ -1,0 +1,80 @@
+name: TDMS Backend CI
+
+# Triggers: run this workflow on every push to any branch,
+# and on every pull request targeting the main branch.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Run Backend Tests
+    runs-on: ubuntu-latest   # GitHub spins up a fresh Ubuntu VM for this
+
+    # -------------------------------------------------------------------------
+    # Spin up a PostgreSQL service container alongside the test runner.
+    # GitHub Actions supports this natively — no Docker Compose needed here.
+    # These credentials are throwaway CI values, not real secrets.
+    # It is safe and standard to hardcode them here.
+    # -------------------------------------------------------------------------
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_pass
+          POSTGRES_DB: tdms_test
+        ports:
+          - 5432:5432
+        # Wait until PostgreSQL is actually ready before running tests.
+        # Without this, the job might start before the DB is accepting connections.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      # 1. Check out your code onto the CI machine
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install Python
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          # Cache pip downloads so repeated runs are faster
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      # 3. Install all Python dependencies
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      # 4. Write a .env file for the CI run.
+      # DATABASE_URL points to the service container defined above.
+      # SECRET_KEY can be any non-empty string for tests.
+      # Notice: no real secrets here — these are all CI-only throwaway values.
+      - name: Create CI environment file
+        working-directory: backend
+        run: |
+          echo "DATABASE_URL=postgresql://ci_user:ci_pass@localhost:5432/tdms_test" > .env
+          echo "SECRET_KEY=ci-secret-key-not-used-in-production" >> .env
+
+      # 5. Run Alembic migrations against the CI database.
+      # This verifies your migration files are valid, not just your model code.
+      - name: Run database migrations
+        working-directory: backend
+        run: alembic upgrade head
+
+      # 6. Run pytest.
+      # The tests themselves use SQLite in memory (see conftest.py),
+      # so they don't actually hit the PostgreSQL container above —
+      # but the migration step above does, which catches schema errors.
+      - name: Run tests
+        working-directory: backend
+        run: pytest --tb=short -v
