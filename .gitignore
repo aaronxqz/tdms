@@ -174,3 +174,40 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+# =============================================================================
+# TDMS — project-specific additions
+# =============================================================================
+
+# Google Calendar OAuth credentials and tokens (NEVER commit these)
+backend/google_credentials.json
+backend/token.json
+
+# Windows Alternate Data Stream metadata files created in WSL
+*.Zone.Identifier
+*:Zone.Identifier
+
+# Node.js / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+node_modules/
+dist/
+
+# SQLite test databases
+*.db
+*.sqlite
+
+# VS Code workspace settings (editor-local, not project config)
+.vscode/
+
+# Vim editor swap and temporary files
+*.swp
+*.swo
+*.sw?
+*~
+
+# Internal tooling artefacts (not part of the project source)
+.CLAUDE_HISTORY
+.CLAUDE_HISTORY.md
+USR_INSTRUC.md
